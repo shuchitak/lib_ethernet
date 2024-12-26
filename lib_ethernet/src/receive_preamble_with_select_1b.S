@@ -56,7 +56,6 @@ receive_full_preamble_1b_with_select_asm:
     clre
     eeu res[r0]
     eeu res[r2]
-    setc res[r0], 0x1
     ldap r11, rx_data_received
     setv res[r0], r11
     ldc r3, 0
@@ -69,7 +68,6 @@ receive_full_preamble_1b_with_select_asm:
 
 rx_data_received:
     in r5, res[r0]
-    setc res[r1], 0x1
     in r6, res[r1]
     sub r11, r11, 0x1
     bf r11, preamble_done
