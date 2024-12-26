@@ -75,6 +75,7 @@ rx_data_received:
 
     setpsc res[r0], r5
     setpsc res[r1], r5
+    ldw r5, cp[expected_preamble]
     waiteu
 
 data_valid_deasserted:
@@ -84,8 +85,8 @@ data_valid_deasserted:
 
 preamble_done:
     zip r11, r3, 0x0
-    ldw r1, cp[expected_preamble]
-    {eq r1, r11, r1; ldw r0, cp[initial_crc]}
+    //ldw r5, cp[expected_preamble]
+    {eq r1, r11, r5; ldw r0, cp[initial_crc]}
     bf r1, preamble_not_match
 
     ldd r5, r4, sp[0x0]
