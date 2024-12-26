@@ -452,28 +452,87 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
     }
 }
 
-static inline unsigned rx_1b_word(in buffered port:32 p_mii_rxd_0,
-                                  in buffered port:32 p_mii_rxd_1){
+extern unsigned rx_1b_word(in buffered port:32 p_mii_rxd_0, in buffered port:32 p_mii_rxd_1);
 
+static unsigned rx_1b_word_with_select(in buffered port:32 p_mii_rxd_0,
+                                            in buffered port:32 p_mii_rxd_1,
+                                            in port p_mii_rxdv
+                                            )
+{
     unsigned word, word2;
 
     // We need to set this so it puts the shift reg in the transfer reg after 16.
     set_port_shift_count(p_mii_rxd_0, 16);
     set_port_shift_count(p_mii_rxd_1, 16);
-
-    // Use full XC IN which also does SETC 0x0001. We have plenty of time at preamble.
-    p_mii_rxd_0 :> word;
-    p_mii_rxd_1 :> word2;
-
-    // Zip together. Note we care about the upper 16b of the port only (newest data).
-    uint64_t combined = zip(word2, word, 0);
-    // resuse word
-    word = (uint32_t) (combined >> 32); // Discard lower word - two port upper 16b combine to upper 32b zipped.
-
-    return word;
+    while(1)
+    {
+        select{
+            case p_mii_rxd_0 :> word:
+                p_mii_rxd_1 :> word2;
+                uint64_t combined = zip(word2, word, 0);
+                // resuse word
+                word = (uint32_t) (combined >> 32); // Discard lower word - two port upper 16b combine to upper 32b zipped.
+                return word;
+                break;
+            case p_mii_rxdv when pinseq(0) :> int:
+                return 0;
+                break;
+        }
+    }
+    return 0;
 }
 
+unsigned extern rx_1b_word_asm(in buffered port:32 p_mii_rxd_0, in buffered port:32 p_mii_rxd_1);
+extern unsigned receive_full_preamble_1b(in buffered port:32 p_mii_rxd_0, in buffered port:32 p_mii_rxd_1);
+unsigned receive_full_preamble_1b_with_select_asm(in buffered port:32 p_mii_rxd_0,
+                                                    in buffered port:32 p_mii_rxd_1,
+                                                    in port p_mii_rxdv);
 
+
+#define RECEIVE_PREAMBLE_WITH_SELECT_1b_ASM (1)
+
+unsigned receive_full_preamble_1b_with_select(in buffered port:32 p_mii_rxd_0,
+                                              in buffered port:32 p_mii_rxd_1,
+                                              in port p_mii_rxdv)
+{
+    unsigned crc = 0x9226F562;
+    unsigned word, word2;
+    int count = -1;
+
+    set_port_shift_count(p_mii_rxd_0, 16);
+    set_port_shift_count(p_mii_rxd_1, 16);
+
+    p_mii_rxdv when pinseq(1) :> int;
+
+    while(1) {
+      select {
+        case p_mii_rxd_0 :> word:
+          p_mii_rxd_1 :> word2;
+
+          const unsigned expected_preamble = 0xD5555555;
+          if (count == 0)
+          {
+            uint64_t combined = zip(word2, word, 0);
+            unsigned sfd_preamble = (uint32_t) (combined >> 32); // Discard lower word - two port upper 16b combine to upper 32b zipped.
+            if(sfd_preamble != expected_preamble) {
+              // Corrupt the CRC so that the packet is discarded
+              crc = ~crc;
+            }
+            return crc;
+          }
+          set_port_shift_count(p_mii_rxd_0, 16);
+          set_port_shift_count(p_mii_rxd_1, 16);
+          count++;
+          break;
+        case p_mii_rxdv when pinseq(0) :> int:
+          return 0;
+          break;
+      }
+    }
+    return 0;
+}
+
+#define TRY_ASSEMBLY (0)
 // Brining this out to an inline while(1) select improves performance as compiler can hoist select setup
 {unsigned* unsafe, unsigned, unsigned}  master_rx_pins_1b_body( unsigned * unsafe dptr,
                                                                 in port p_mii_rxdv,
@@ -484,18 +543,19 @@ static inline unsigned rx_1b_word(in buffered port:32 p_mii_rxd_0,
                                                                 unsigned * unsafe end_ptr
                                                                 ){
 unsafe{
-    unsigned crc = 0x9226F562;
+    //unsigned crc = 0x9226F562;
     const unsigned poly = 0xEDB88320;
     // Discount the CRC word
     int num_rx_bytes = -4;
+    unsigned crc_bac;
 
     // Receive second half of preamble and check
-    unsigned sfd_preamble = rx_1b_word(p_mii_rxd_0, p_mii_rxd_1);
-    const unsigned expected_preamble = 0xD5555555;
-    if (sfd_preamble != expected_preamble) {
-        // Corrupt the CRC so that the packet is discarded
-        crc = ~crc;
-    }
+#if RECEIVE_PREAMBLE_WITH_SELECT_1b_ASM
+    unsigned crc = receive_full_preamble_1b_with_select_asm(p_mii_rxd_0, p_mii_rxd_1, p_mii_rxdv);
+#else
+    unsigned crc = receive_full_preamble_1b_with_select(p_mii_rxd_0, p_mii_rxd_1, p_mii_rxdv);
+#endif
+    crc_bac = crc;
 
     // Timestamp the start of packet and record it in the packet structure
     timer tmr;
@@ -511,6 +571,7 @@ unsafe{
     while(1) {
         select {
             case p_mii_rxdv when pinseq(0) :> int:
+                 //printhexln((unsigned)crc_bac);
                  return {dptr, crc, num_rx_bytes};
                  break;
 
@@ -571,13 +632,22 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
         unsigned * unsafe end_ptr;
         mii_packet_t * unsafe buf = mii_reserve(rx_mem, rdptr, &end_ptr);
 
-        unsigned crc = 0x9226F562;
         unsigned poly = 0xEDB88320;
         unsigned * unsafe dptr = &buf->data[0];
 
         // Receive first half of preamble and discard
-        rx_1b_word(*p_mii_rxd_0, *p_mii_rxd_1);
-
+#if 0
+        unsigned crc = 0x9226F562;
+#if TRY_ASSEMBLY
+        unsigned preamble = rx_1b_word_asm(*p_mii_rxd_0, *p_mii_rxd_1);
+#else
+        unsigned preamble = rx_1b_word(*p_mii_rxd_0, *p_mii_rxd_1);
+#endif
+        //rx_1b_word(*p_mii_rxd_0, *p_mii_rxd_1);
+        //rx_1b_word_with_select(*p_mii_rxd_0, *p_mii_rxd_1, p_mii_rxdv);
+#endif
+        //unsigned crc = receive_full_preamble_1b_with_select(*p_mii_rxd_0, *p_mii_rxd_1, p_mii_rxdv);
+        unsigned crc;
         // Receive body of frame. This is in a separate function to allow more efficient select.
         int num_rx_bytes;
         {dptr, crc, num_rx_bytes} = master_rx_pins_1b_body(dptr, p_mii_rxdv, *p_mii_rxd_0, *p_mii_rxd_1, (unsigned*)&buf->timestamp, wrap_ptr, end_ptr);
