@@ -40,24 +40,25 @@ inverted_crc:
     .issue_mode dual
 receive_full_preamble_1b_with_select_asm:
     dualentsp 0x0
-    extsp 0x4
+    extsp 0x2
     std r5, r4, sp[0x0]
-    ldc r4, 0x10
-    stw r6, sp[0x2]
+    ldc r5, 0x10
 
-    setpsc res[r0], r4
-    setpsc res[r1], r4
+
+    setpsc res[r0], r5
+    setpsc res[r1], r5
     mkmsk r3, 1
+
+    clre
+    eeu res[r0]
+    ldap r11, rx_data_received
+    setv res[r0], r11
 
     setd res[r2], r3
     setc res[r2], 0x11
     in r3, res[r2]
 
-    clre
-    eeu res[r0]
     eeu res[r2]
-    ldap r11, rx_data_received
-    setv res[r0], r11
     ldc r3, 0
     setd res[r2], r3
     ldap r11, data_valid_deasserted
@@ -67,12 +68,12 @@ receive_full_preamble_1b_with_select_asm:
     waiteu
 
 rx_data_received:
-    in r5, res[r0]
-    in r6, res[r1]
+    in r3, res[r0]
+    in r4, res[r1]
     sub r11, r11, 0x1
     bf r11, preamble_done
-    setpsc res[r0], r4
-    setpsc res[r1], r4
+    setpsc res[r0], r5
+    setpsc res[r1], r5
     waiteu
 
 data_valid_deasserted:
@@ -80,18 +81,17 @@ data_valid_deasserted:
     bu done
 
 preamble_done:
-    zip r6, r5, 0x0
+    zip r4, r3, 0x0
     ldw r0, cp[expected_preamble]
-    eq r0, r6, r0
+    eq r0, r4, r0
     bt r0, preamble_match
     ldw r0, cp[inverted_crc]
     bu done
 preamble_match:
     ldw r0, cp[initial_crc]
 done:
-    ldw r6, sp[0x2]
     ldd r5, r4, sp[0x0]
-    ldaw sp, sp[0x4]
+    ldaw sp, sp[0x2]
     retsp 0x0
 
 
