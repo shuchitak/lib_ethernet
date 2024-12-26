@@ -86,12 +86,11 @@ preamble_done:
     ldw r0, cp[expected_preamble]
     eq r0, r6, r0
     bt r0, preamble_match
-    ldw r3, cp[inverted_crc]
+    ldw r0, cp[inverted_crc]
     bu done
 preamble_match:
-    ldw r3, cp[initial_crc]
+    ldw r0, cp[initial_crc]
 done:
-    add r0, r3, 0
     ldw r6, sp[0x2]
     ldd r5, r4, sp[0x0]
     ldaw sp, sp[0x4]
