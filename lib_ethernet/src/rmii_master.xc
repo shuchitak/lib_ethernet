@@ -548,13 +548,17 @@ unsafe{
     // Discount the CRC word
     int num_rx_bytes = -4;
     unsigned crc_bac;
+    timer t;
+    unsigned start, end;
 
     // Receive second half of preamble and check
+    //t :> start;
 #if RECEIVE_PREAMBLE_WITH_SELECT_1b_ASM
     unsigned crc = receive_full_preamble_1b_with_select_asm(p_mii_rxd_0, p_mii_rxd_1, p_mii_rxdv);
 #else
     unsigned crc = receive_full_preamble_1b_with_select(p_mii_rxd_0, p_mii_rxd_1, p_mii_rxdv);
 #endif
+    //t :> end;
     crc_bac = crc;
 
     // Timestamp the start of packet and record it in the packet structure
@@ -571,7 +575,7 @@ unsafe{
     while(1) {
         select {
             case p_mii_rxdv when pinseq(0) :> int:
-                 //printhexln((unsigned)crc_bac);
+                 //printuintln(end - start);
                  return {dptr, crc, num_rx_bytes};
                  break;
 

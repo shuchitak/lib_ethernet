@@ -13,7 +13,7 @@ inverted_crc:
 
 .cc_top receive_full_preamble_1b_with_select_asm.func, receive_full_preamble_1b_with_select_asm
 
-#define STACK_WORDS                 4
+#define STACK_WORDS                 2
 #define RXD0        r0  // Port resource ID
 #define RXD1        r1  // Port resource ID
 
@@ -39,60 +39,61 @@ inverted_crc:
     .align 8
     .issue_mode dual
 receive_full_preamble_1b_with_select_asm:
-    dualentsp 0x0
-    extsp 0x2
+    DUALENTSP_lu6 STACK_WORDS
     std r5, r4, sp[0x0]
     ldc r5, 0x10
 
 
     setpsc res[r0], r5
     setpsc res[r1], r5
-    mkmsk r3, 1
 
-    clre
+
+    {clre; mkmsk r3, 1}
     eeu res[r0]
-    ldap r11, rx_data_received
+    {ldap r11, rx_data_received;     setd res[r2], r3}
     setv res[r0], r11
 
-    setd res[r2], r3
-    setc res[r2], 0x11
-    in r3, res[r2]
+
+
+    {setc res[r2], 0x11; ldc r3, 0}
+    in r4, res[r2]
 
     eeu res[r2]
-    ldc r3, 0
-    setd res[r2], r3
-    ldap r11, data_valid_deasserted
-    setv res[r2], r11
-    ldc r11, 0x2
+
+    {setd res[r2], r3; ldap r11, data_valid_deasserted}
+
+    {setv res[r2], r11;    ldc r4, 0x2}
+
+
 
     waiteu
 
 rx_data_received:
-    in r3, res[r0]
-    in r4, res[r1]
-    sub r11, r11, 0x1
-    bf r11, preamble_done
+    {in r3, res[r0]; sub r4, r4, 0x1}
+    { in r11, res[r1]; bf r4, preamble_done}
+
+
     setpsc res[r0], r5
     setpsc res[r1], r5
     waiteu
 
 data_valid_deasserted:
     in r0, res[r2]
-    bu done
+    ldd r5, r4, sp[0x0]
+    retsp  STACK_WORDS
 
 preamble_done:
-    zip r4, r3, 0x0
-    ldw r0, cp[expected_preamble]
-    eq r0, r4, r0
-    bt r0, preamble_match
-    ldw r0, cp[inverted_crc]
-    bu done
-preamble_match:
-    ldw r0, cp[initial_crc]
-done:
+    zip r11, r3, 0x0
+    ldw r1, cp[expected_preamble]
+    {eq r1, r11, r1; ldw r0, cp[initial_crc]}
+    bf r1, preamble_not_match
+
     ldd r5, r4, sp[0x0]
-    ldaw sp, sp[0x2]
-    retsp 0x0
+    retsp  STACK_WORDS
+preamble_not_match:
+    ldw r0, cp[inverted_crc]
+    ldd r5, r4, sp[0x0]
+    retsp  STACK_WORDS
 
 
 
