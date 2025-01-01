@@ -633,17 +633,7 @@ unsafe void rmii_master_rx_pins_1b( mii_mempool_t rx_mem,
         unsigned * unsafe dptr = &buf->data[0];
 
         // Receive first half of preamble and discard
-#if 0
-        unsigned crc = 0x9226F562;
-#if TRY_ASSEMBLY
-        unsigned preamble = rx_1b_word_asm(*p_mii_rxd_0, *p_mii_rxd_1);
-#else
-        unsigned preamble = rx_1b_word(*p_mii_rxd_0, *p_mii_rxd_1);
-#endif
-        //rx_1b_word(*p_mii_rxd_0, *p_mii_rxd_1);
-        //rx_1b_word_with_select(*p_mii_rxd_0, *p_mii_rxd_1, p_mii_rxdv);
-#endif
-        //unsigned crc = receive_full_preamble_1b_with_select(*p_mii_rxd_0, *p_mii_rxd_1, p_mii_rxdv);
+
         unsigned crc;
         // Receive body of frame. This is in a separate function to allow more efficient select.
         int num_rx_bytes;
