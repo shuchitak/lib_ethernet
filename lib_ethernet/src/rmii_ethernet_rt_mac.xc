@@ -38,7 +38,7 @@ static out buffered port:32 * unsafe enable_buffered_out_port(unsigned *port_poi
 
 
 
-{unsigned, rmii_data_4b_pin_assignment_t, in buffered port:32 * unsafe,in buffered port:32 * unsafe} 
+{unsigned, rmii_data_4b_pin_assignment_t, in buffered port:32 * unsafe,in buffered port:32 * unsafe}
     init_rx_ports(in_port_t p_clk,
                   in_port_t p_rxdv,
                   clock rxclk,
@@ -167,7 +167,7 @@ void rmii_ethernet_rt_mac(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), stati
     in buffered port:32 * unsafe rx_data_1 = NULL;
     unsigned rx_port_width;
     rmii_data_4b_pin_assignment_t rx_port_4b_pins;
-    {rx_port_width, rx_port_4b_pins, rx_data_0, rx_data_1} = init_rx_ports(p_clk, p_rxdv, rxclk, p_rxd); 
+    {rx_port_width, rx_port_4b_pins, rx_data_0, rx_data_1} = init_rx_ports(p_clk, p_rxdv, rxclk, p_rxd);
 
     // Setup TX data ports
     // First declare C pointers for port resources and the initialise
@@ -274,10 +274,11 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
         mii_mempool_t tx_mem_lp = mii_init_mempool(tx_data, lp_buffer_bytes);
         mii_mempool_t tx_mem_hp = mii_init_mempool(tx_data + (lp_buffer_bytes/4), hp_buffer_bytes);
 
-        packet_queue_info_t rx_packets_lp, rx_packets_hp, tx_packets_lp, tx_packets_hp, incoming_packets;
+        packet_queue_info_t rx_packets_lp, rx_packets_hp, tx_packets_lp[2], tx_packets_hp, incoming_packets;
         mii_init_packet_queue((mii_packet_queue_t)&rx_packets_lp);
         mii_init_packet_queue((mii_packet_queue_t)&rx_packets_hp);
-        mii_init_packet_queue((mii_packet_queue_t)&tx_packets_lp);
+        mii_init_packet_queue((mii_packet_queue_t)&tx_packets_lp[0]);
+        mii_init_packet_queue((mii_packet_queue_t)&tx_packets_lp[1]);
         mii_init_packet_queue((mii_packet_queue_t)&tx_packets_hp);
         mii_init_packet_queue((mii_packet_queue_t)&incoming_packets);
 
@@ -312,13 +313,13 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
         in buffered port:32 * unsafe rx_data_0_1 = NULL;
         unsigned rx_port_width_0;
         rmii_data_4b_pin_assignment_t rx_port_4b_pins_0;
-        {rx_port_width_0, rx_port_4b_pins_0, rx_data_0_0, rx_data_0_1} = init_rx_ports(p_clk, p_rxdv_0, rxclk_0, p_rxd_0); 
+        {rx_port_width_0, rx_port_4b_pins_0, rx_data_0_0, rx_data_0_1} = init_rx_ports(p_clk, p_rxdv_0, rxclk_0, p_rxd_0);
         // MAC port 1
         in buffered port:32 * unsafe rx_data_1_0 = NULL;
         in buffered port:32 * unsafe rx_data_1_1 = NULL;
         unsigned rx_port_width_1 = 0;
         rmii_data_4b_pin_assignment_t rx_port_4b_pins_1;
-        {rx_port_width_1, rx_port_4b_pins_1, rx_data_1_0, rx_data_1_1} = init_rx_ports(p_clk, p_rxdv_1, rxclk_1, p_rxd_1); 
+        {rx_port_width_1, rx_port_4b_pins_1, rx_data_1_0, rx_data_1_1} = init_rx_ports(p_clk, p_rxdv_1, rxclk_1, p_rxd_1);
 
 
 
@@ -384,7 +385,7 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
             }
             rmii_master_tx_pins(tx_mem_lp,
                               tx_mem_hp,
-                              (mii_packet_queue_t)&tx_packets_lp,
+                              (mii_packet_queue_t)&tx_packets_lp[0],
                               (mii_packet_queue_t)&tx_packets_hp,
                               ts_queue,
                               tx_port_width_0,
@@ -396,7 +397,7 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
 
             rmii_master_tx_pins(tx_mem_lp,
                               tx_mem_hp,
-                              (mii_packet_queue_t)&tx_packets_lp,
+                              (mii_packet_queue_t)&tx_packets_lp[1],
                               (mii_packet_queue_t)&tx_packets_hp,
                               ts_queue,
                               tx_port_width_1,
@@ -418,7 +419,7 @@ void rmii_ethernet_rt_mac_dual(SERVER_INTERFACE(ethernet_cfg_if, i_cfg[n_cfg]), 
                               p_rx_rdptr,
                               tx_mem_lp,
                               tx_mem_hp,
-                              (mii_packet_queue_t)&tx_packets_lp,
+                              (mii_packet_queue_t)tx_packets_lp,
                               (mii_packet_queue_t)&tx_packets_hp,
                               ts_queue,
                               i_cfg, n_cfg,

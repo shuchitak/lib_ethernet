@@ -448,7 +448,7 @@ unsafe void rmii_master_rx_pins_4b( mii_mempool_t rx_mem,
             /*    to keep up and process the packets so that the incoming_packet */
             /*    pointers never fill up */
             mii_add_packet(incoming_packets, buf);
-            printstr("mii_add_packet\n");
+            //printstr("mii_add_packet\n");
         }
     }
 }
@@ -955,12 +955,12 @@ unsafe void rmii_master_tx_pins(mii_mempool_t tx_mem_lp,
         }
 
         if (mii_get_and_dec_transmit_count(buf) == 0) {
+
             /* The timestamp queue is only set for low-priority packets */
             if (!packet_is_high_priority) {
                 if (buf->timestamp_id) {
                     mii_ts_queue_add_entry(*p_ts_queue, buf->timestamp_id, time);
                 }
-
                 mii_free_current(packets_lp);
             } else {
                 mii_free_current(packets_hp);

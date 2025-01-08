@@ -51,6 +51,7 @@ unsafe static void handle_incoming_packet(mii_packet_queue_t packets,
   if (!buf)
     return;
 
+  //printstr("handle_incoming_packet");
   int tcount = 0;
   if (buf->filter_result) {
     for (unsigned i = 0; i < n; i++) {
@@ -78,6 +79,7 @@ unsafe static void handle_incoming_packet(mii_packet_queue_t packets,
         }
         client_wants_packet &= passed_etype_filter;
       }
+
 
       if (client_wants_packet) {
         debug_printf("Trying to queue for client %d\n", i);
@@ -116,7 +118,7 @@ unsafe static void drop_lp_packets(mii_packet_queue_t packets,
 {
   for (unsigned i = 0; i < n; i++) {
     rx_client_state_t &client_state = client_states[i];
-    
+
     if (client_state.rd_index != client_state.wr_index) {
       unsigned client_rd_index = client_state.rd_index;
       unsigned packets_rd_index = (unsigned)client_state.fifo[client_rd_index];
@@ -505,8 +507,23 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
       else
         buf->timestamp_id = 0;
       mii_commit(tx_mem_lp, dptr);
-      mii_add_packet(tx_packets_lp, buf);
-      buf->tcount = 0;
+      if(dst_port != ETHERNET_ALL_INTERFACES)
+      {
+        packet_queue_info_t *lp_packet_queue = &((packet_queue_info_t *)tx_packets_lp)[dst_port];
+        mii_add_packet((mii_packet_queue_t)lp_packet_queue, buf);
+        buf->tcount = 0;
+      }
+      else
+      {
+        packet_queue_info_t *lp_packet_queue = &((packet_queue_info_t *)tx_packets_lp)[0];
+        mii_add_packet((mii_packet_queue_t)lp_packet_queue, buf);
+        lp_packet_queue = &((packet_queue_info_t *)tx_packets_lp)[1];
+        mii_add_packet((mii_packet_queue_t)lp_packet_queue, buf);
+        buf->tcount = 2;
+      }
+
+
+
       tx_client_state_lp[i].send_buffer = null;
       tx_client_state_lp[i].requested_send_buffer_size = 0;
       prioritize_rx = 3;
@@ -536,7 +553,7 @@ unsafe void mii_ethernet_server(mii_mempool_t rx_mem,
         drop_lp_packets(rx_packets_lp, rx_client_state_lp, n_rx_lp);
       }
     }
-    
+
     if (!isnull(c_tx_hp)) {
       if (!mii_packet_queue_full(tx_packets_hp)) {
         unsigned * unsafe rdptr = mii_get_rdptr(tx_packets_hp);
