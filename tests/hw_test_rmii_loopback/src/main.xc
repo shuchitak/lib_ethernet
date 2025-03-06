@@ -12,6 +12,9 @@
 #include <xscope.h>
 #include "debug_print.h"
 #include "rmii_port_defines.h" // RMII port definitions
+#if PROBE_TX_TIMESTAMPS
+#include "log_tx_ts.h"
+#endif
 
 
 
@@ -76,6 +79,9 @@ int main()
             test_rx_lp(i_cfg[1], i_rx_lp[0], i_tx_lp[0], 0, c_clients[0], i_loopback);
           }
         }
+#if PROBE_TX_TIMESTAMPS
+        tx_timestamp_probe();
+#endif
         test_rx_loopback(c_tx_hp, i_loopback);
         {
           xscope_control(c_xscope, c_clients, NUM_CFG_CLIENTS-1);
